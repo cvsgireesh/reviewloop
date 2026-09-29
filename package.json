@@ -1,0 +1,48 @@
+{
+  "name": "@cvsgireesh/reviewloop",
+  "version": "0.1.0",
+  "description": "Agents handle your PR feedback while you do other work. You approve every push.",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=24"
+  },
+  "bin": {
+    "reviewloop": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "tsx --test tests/*.test.ts",
+    "check": "tsc --noEmit",
+    "start": "node dist/cli.js",
+    "prepack": "npm run build",
+    "format": "prettier --write src tests scripts/*.mjs *.json docs/*.md README.md",
+    "format:check": "prettier --check src tests scripts/*.mjs *.json docs/*.md README.md",
+    "test:sandbox-live": "npm run build && node scripts/check-sandbox.mjs"
+  },
+  "files": [
+    "dist",
+    "skills",
+    "scripts",
+    "docs",
+    "README.md",
+    "LICENSE",
+    "reviewloop.example.json"
+  ],
+  "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.0.0",
+    "@octokit/rest": "^22.0.0",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "prettier": "^3.9.9",
+    "tsx": "^4.0.0",
+    "typescript": "^5.9.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cvsgireesh/reviewloop.git"
+  }
+}

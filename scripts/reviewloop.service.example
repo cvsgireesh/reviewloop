@@ -1,0 +1,16 @@
+# Copy to ~/.config/systemd/user/reviewloop.service and replace every placeholder.
+[Unit]
+Description=ReviewLoop pull request supervisor
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/ABSOLUTE/PATH/TO/PRIVATE/REVIEWLOOP-DIRECTORY
+EnvironmentFile=/ABSOLUTE/PATH/TO/PRIVATE/reviewloop.env
+ExecStart=/ABSOLUTE/PATH/TO/reviewloop run --config /ABSOLUTE/PATH/TO/PRIVATE/reviewloop.json
+Restart=on-failure
+RestartSec=15
+UMask=0077
+
+[Install]
+WantedBy=default.target

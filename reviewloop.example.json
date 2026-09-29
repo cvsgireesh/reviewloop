@@ -1,0 +1,42 @@
+{
+  "github": {
+    "apiUrl": "https://api.github.com",
+    "tokenEnv": "GITHUB_TOKEN",
+    "username": "YOUR_GITHUB_LOGIN",
+    "repositories": [
+      {
+        "name": "YOUR_OWNER/YOUR_REPO",
+        "checks": ["npm test"]
+      }
+    ],
+    "pollSeconds": 30
+  },
+  "model": {
+    "provider": "bedrock",
+    "modelId": "us.anthropic.claude-sonnet-5",
+    "region": "us-east-2",
+    "tokenEnv": "AWS_BEARER_TOKEN_BEDROCK",
+    "maxOutputTokens": 4096
+  },
+  "telegram": {
+    "tokenEnv": "TELEGRAM_BOT_TOKEN",
+    "chatId": "0",
+    "userId": "0"
+  },
+  "runtime": {
+    "stateDir": "~/.local/state/reviewloop",
+    "sandbox": "podman",
+    "image": "docker.io/library/node:24-bookworm-slim",
+    "maxJobMinutes": 30,
+    "maxSteps": 24,
+    "maxRepairAttempts": 3,
+    "maxToolOutputBytes": 24000,
+    "maxInputTokens": 300000,
+    "maxOutputTokens": 24000,
+    "maxTotalInputTokens": 1500000,
+    "maxTotalOutputTokens": 120000,
+    "approvalHours": 24,
+    "maxChangedFiles": 30,
+    "maxPatchBytes": 500000
+  }
+}
