@@ -1,7 +1,7 @@
 {
   "name": "@cvsgireesh/reviewloop",
   "version": "0.2.0",
-  "description": "Agents handle your PR feedback while you do other work. You approve every push.",
+  "description": "Self-hosted AI agent for GitHub PR feedback. Agents fix and test while you do other work. You approve every push. AWS Bedrock + Telegram.",
   "type": "module",
   "private": true,
   "engines": {
@@ -16,8 +16,8 @@
     "check": "tsc --noEmit",
     "start": "node dist/cli.js",
     "prepack": "npm run build",
-    "format": "prettier --write src tests scripts/*.mjs *.json docs/*.md README.md",
-    "format:check": "prettier --check src tests scripts/*.mjs *.json docs/*.md README.md",
+    "format": "prettier --write src tests scripts/*.mjs *.json *.md docs/*.md .github",
+    "format:check": "prettier --check src tests scripts/*.mjs *.json *.md docs/*.md .github",
     "test:sandbox-live": "npm run build && node scripts/check-sandbox.mjs",
     "test:reference": "npm run build && node dist/cli.js evaluate --reference --output ./reference-results"
   },
@@ -30,7 +30,12 @@
     "LICENSE",
     "reviewloop.example.json",
     "containers",
-    "evals"
+    "evals",
+    "AGENTS.md",
+    "llms.txt",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
+    "SUPPORT.md"
   ],
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.0.0",
@@ -50,5 +55,21 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/cvsgireesh/reviewloop.git"
-  }
+  },
+  "homepage": "https://github.com/cvsgireesh/reviewloop#quick-start",
+  "bugs": {
+    "url": "https://github.com/cvsgireesh/reviewloop/issues"
+  },
+  "keywords": [
+    "ai-agent",
+    "pull-requests",
+    "github-automation",
+    "code-review",
+    "aws-bedrock",
+    "telegram-bot",
+    "self-hosted",
+    "human-in-the-loop",
+    "agent-harness",
+    "typescript"
+  ]
 }

@@ -1,96 +1,152 @@
-# ReviewLoop
+# ReviewLoop — self-hosted AI agent for GitHub pull requests
 
-Agents handle your PR feedback while you do other work. You approve every push.
+**Agents handle your PR feedback while you do other work. You approve every push.**
 
-ReviewLoop is a Linux-first supervisor for your open pull requests in explicitly configured repositories you control. It polls GitHub, asks a coding agent to assess feedback and prepare changes, runs the repository's configured checks, and sends you the result through Telegram. Publishing requires your approval of the exact candidate commit. It does not merge PRs.
+ReviewLoop watches your open pull requests, uses an AI coding agent to assess review feedback and prepare fixes, runs your checks, and sends the result to Telegram. Reply with changes or approve the exact commit before it is pushed. It runs on your Linux machine with AWS Bedrock and keeps preferences, job history and approval decisions in local SQLite state.
 
-**Version 0.2.0 upgrades the coding runtime and adds a repair benchmark.** Pi Agent core drives the tool loop, and a pinned Codex executable applies patches inside the worker sandbox. Real-model coding quality and deployment isolation have not been qualified. See [recorded validation](docs/VALIDATION.md), [operations](docs/OPERATIONS.md), and [security boundaries](docs/SECURITY.md).
+[![CI](https://github.com/cvsgireesh/reviewloop/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/cvsgireesh/reviewloop/actions/workflows/ci.yml)
+[MIT license](LICENSE) · [Setup](#quick-start) · [Operations](docs/OPERATIONS.md) · [Contributing](CONTRIBUTING.md) · [Agent guide](docs/AGENT-GUIDE.md)
 
-## Install from source
+**Status: MVP, version 0.2.0.** The local suite has 88 passing tests and the package passed a clean installation check. Live Bedrock coding quality, Telegram delivery and Linux sandbox qualification still need a deployment pilot. [Validation and limits](docs/VALIDATION.md).
 
-Prerequisites: Node.js 24 or newer, npm, Git, and rootless Podman (or explicitly configured rootless Docker). Install those through your normal approved system tooling. The worker image needs `/bin/sh`, GNU `/usr/bin/timeout`, the pinned Codex patch helper, and your repository's test/build dependencies. ReviewLoop never builds or pulls an image or installs repository dependencies automatically.
+## Quick start
+
+You need **Linux, Node.js 24+, npm, Git and rootless Podman**, plus GitHub, Bedrock and Telegram credentials. Rootless Docker is also supported; this guide uses Podman. Commands below use `node dist/cli.js`, so a global npm install is unnecessary.
+
+### 1. Install
 
 ```sh
+git clone https://github.com/cvsgireesh/reviewloop.git
+cd reviewloop
 npm ci
-npm run check
-npm test
 npm run build
-npm link
-reviewloop --help
+node dist/cli.js --help
 ```
 
-Alternatively, run `npm pack` and install the resulting package with `npm install -g /path/to/package.tgz`. Use a user-owned npm prefix; these instructions do not require root. Neither method signs you into any service.
+Try the bundled repair examples without credentials or model charges:
 
-Build the provided worker image explicitly on the intended rootless Linux host:
+```sh
+node dist/cli.js evaluate --reference --output "$(mktemp -d)"
+```
+
+This checks the reference solutions, not the model's ability to solve them.
+
+### 2. Configure your repository and accounts
+
+```sh
+mkdir -p "$HOME/.config/reviewloop"
+node dist/cli.js init --config "$HOME/.config/reviewloop/reviewloop.json"
+cp -n scripts/reviewloop.env.example "$HOME/.config/reviewloop/reviewloop.env"
+chmod 600 "$HOME/.config/reviewloop/reviewloop.env"
+```
+
+Open both files in your editor. The generated JSON contains all settings; change these first:
+
+| Setting in `reviewloop.json`            | What to enter                                                |
+| --------------------------------------- | ------------------------------------------------------------ |
+| `github.username`                       | Your GitHub login                                            |
+| `github.repositories[0].name`           | A repository you control, such as `your-login/your-repo`     |
+| `github.repositories[0].checks`         | Commands that verify that repository, such as `["npm test"]` |
+| `telegram.userId` and `telegram.chatId` | Your numeric Telegram user and bot-chat IDs, as strings      |
+| `model.region` and `model.modelId`      | Your authorized Bedrock region and model/inference profile   |
+
+Bedrock defaults to `us-east-2` and `us.anthropic.claude-sonnet-5`; model and region are configurable. Confirm access in your AWS account. Only your own open PRs are watched by default. [Optional author/PR filters](docs/OPERATIONS.md#optional-monitoring-scope).
+
+Put these values in the private `reviewloop.env` file, **not in Git or the JSON config**:
+
+- `GITHUB_TOKEN`: a token for your selected repositories. The authenticated user must have admin or maintain access; the token needs PR read access and permission to push approved changes.
+- `AWS_BEARER_TOKEN_BEDROCK`: your Bedrock bearer API key. The AWS SDK credential chain is also supported when this variable is absent. An IAM access-key pair is not a bearer token.
+- `TELEGRAM_BOT_TOKEN`: create a bot with [BotFather](https://t.me/BotFather), then send the bot a message. [Find your user/chat IDs](docs/OPERATIONS.md#telegram-setup).
+
+Review the generated token, time and attempt limits. Dollar caps require configured prices and are disabled by default. Keep state outside monitored repositories. See [credentials and renewal](docs/OPERATIONS.md#credentials-and-first-start).
+
+### 3. Prepare the isolated worker
 
 ```sh
 podman build -f containers/Containerfile -t localhost/reviewloop-worker:0.2.0 .
+node scripts/check-sandbox.mjs --config "$HOME/.config/reviewloop/reviewloop.json"
 ```
 
-This command downloads the base image and pinned public Codex package. Extend the image with any repository-specific dependencies, set `runtime.image` to the resulting tag, and [qualify the runtime/image](docs/OPERATIONS.md#qualify-the-real-sandbox-before-inference) before using it for model-generated commands.
+The image includes Node.js and the pinned Codex patch helper. **Add your repository's test dependencies to the image before use**; worker commands have no network access and do not install dependencies automatically. Select your extended image in `runtime.image`. The sandbox check must pass on the Linux machine that will run ReviewLoop. [Image and isolation details](docs/OPERATIONS.md#build-the-020-worker-image).
 
-## Configure before running
+### 4. Check the setup and run one cycle
+
+Load the private environment file in your current shell:
 
 ```sh
-reviewloop init --config ./reviewloop.json
+set -a
+. "$HOME/.config/reviewloop/reviewloop.env"
+set +a
+node dist/cli.js doctor --live --config "$HOME/.config/reviewloop/reviewloop.json"
 ```
 
-Edit the generated configuration. Set your GitHub username, repository allowlist, exact check commands, a preloaded image, private state directory, Telegram owner/chat IDs and resource limits. Keep configuration and state outside monitored workspaces. The intended Bedrock defaults are configurable: model `us.anthropic.claude-sonnet-5`, region `us-east-2`.
-
-Secrets are read from environment variables named by the configuration. See [the environment template](scripts/reviewloop.env.example); never put tokens into command arguments, Git, or PR comments. A Bedrock bearer API key is not an IAM access-key pair. Short-lived keys need an approved renewal mechanism. The `us.` inference profile can route across US and Canada; the request region is not a single-region residency guarantee.
-
-Dollar limits are disabled in the generated example until configured. They require current input/output prices supplied by you. Example limits are proposals, not permission to spend, and token-based estimates are not an AWS billing guarantee. Step, token and time limits still matter. Do not run a real pilot until you have reviewed these limits and the credentials' scope.
+`doctor --live` checks setup and GitHub/Telegram identity; it does not call the model or send a message. After it passes, try one cycle against a disposable PR with review feedback:
 
 ```sh
-reviewloop doctor --config ./reviewloop.json
-reviewloop run --config ./reviewloop.json --once
+node dist/cli.js run --once --config "$HOME/.config/reviewloop/reviewloop.json"
 ```
 
-`run --once` performs real work when valid credentials and eligible PRs exist; it is not a dry run. For continuous monitoring, omit `--once`. [Linux service setup](docs/OPERATIONS.md#linux-user-service) is optional.
+This performs real work and can incur model charges. ReviewLoop sends a summary after preparing and checking a candidate. An approval is required before publishing. Switch to continuous mode below to receive Telegram decisions; `--once` exits before polling replies and may publish jobs already approved in saved state.
 
-## What you control
+### 5. Keep it running
 
-- Which repositories are monitored; defaults to your own open PRs; optional per-repository `authors` and `pullRequests` explicitly narrow or change eligibility.
-- Provider/model, region, check commands, sandbox image, resource limits and approval expiry.
-- Durable preferences through `preferences add`, `preferences list` and `forget`; preferences cannot grant tools, bypass approval or change security policy.
-- Whether a candidate is pushed, rejected, or revised. Fresh feedback or a changed branch can invalidate a pending candidate.
+```sh
+node dist/cli.js run --config "$HOME/.config/reviewloop/reviewloop.json"
+```
 
-Use `status`, `jobs` and `show JOB_ID` for the current state and evidence. The agent can read/edit files and run bounded commands in its workspace; test success is evidence, not a proof of correctness.
+Keep this terminal running, or follow the [Linux user-service guide](docs/OPERATIONS.md#linux-user-service). In Telegram, approve, reject, or reply with feedback. A typed reply requests a revision; it never counts as approval. Merging remains manual.
 
-## Architecture and reuse
+For package installation instead of a checkout, run `npm pack`, then `npm install -g /path/to/package.tgz` using a user-owned npm prefix. The executable is then `reviewloop`. The package is not currently published to the npm registry.
 
-TypeScript controller + SQLite state, Git/Octokit, official AWS Bedrock SDK, isolated execution and Telegram Bot API. The model interface is replaceable; Bedrock and an explicit OpenAI-compatible endpoint are the provider choices in the configuration contract. No silent model fallback.
-
-The controller embeds Pi Agent core 0.99.1 with sequential confined tools and an adapter to ReviewLoop's configured model provider. Bedrock continues through the official AWS SDK. `apply_patch` calls Codex 0.159.0's native patch engine inside the sandbox; it does not invoke the full Codex agent or send inference to OpenAI. DeepSeek Harness is a design reference, not an embedded dependency. [Exact reuse and licenses](docs/REUSE.md), [runtime decision](docs/ADR-002-HARNESS.md).
-
-Complete tool rounds are checkpointed outside the worker workspace. A matching checkpoint can resume after interruption; invalid or changed workspace state is rejected. Owner revisions can start from the prior verified candidate when its original head and policy still match, then require fresh checks and approval. Budgets remain shared across the revision group.
+## How the PR review loop works
 
 ```mermaid
 flowchart LR
-  A[Poll configured open PRs] --> B[Assess feedback and edit]
-  B --> C[Verify clean candidate tree]
-  C --> D[Telegram summary and evidence]
-  D --> E{Owner decision}
-  E -->|Revise| B
+  A[Watch configured GitHub PRs] --> B[Assess feedback and edit]
+  B --> C[Run independent checks]
+  C --> D[Send Telegram summary]
+  D --> E{Your decision}
+  E -->|Request changes| B
   E -->|Reject| A
-  E -->|Approve exact candidate| F[Recheck and push]
+  E -->|Approve exact commit| F[Recheck and push]
   F --> A
 ```
 
-The coding worker receives task context, not permission to publish or read controller credentials. Only the configured Telegram owner/chat can approve; CLI inspection and preferences do not provide an approval bypass.
+For example, a reviewer reports that a function fails for empty input. ReviewLoop examines the comment and code, attempts a fix, runs your configured checks, then reports what changed, what passed and what you should do next. If the PR changes before approval is used, the old approval is invalidated.
 
-## Evaluate repair quality
+The controller owns GitHub, Telegram and model credentials. The worker receives a confined workspace and tools. Budget limits, independently executed checks and the publisher's approval gate are enforced outside the model conversation.
 
-Validate the four fixture oracles without model calls or GitHub/Telegram credentials:
+## Agent runtime, memory and tools
+
+ReviewLoop embeds **Pi Agent core 0.99.1** for the tool loop and **Codex 0.159.0's native patch engine** for sandboxed patch application. Bedrock requests use the official AWS SDK. It does not run the full Codex agent. An explicitly configured OpenAI-compatible endpoint is also supported; there is no silent provider fallback. [Reuse and licenses](docs/REUSE.md) · [Architecture decision](docs/ADR-002-HARNESS.md).
+
+Completed tool rounds are checkpointed for bounded retry and restart recovery. Owner revisions can inherit the previous verified candidate, then require fresh checks and approval. Durable owner preferences are managed with `preferences add`, `preferences list` and `forget`; they cannot override policy or approve pushes. `status`, `jobs`, `show JOB_ID` and `events` expose local state and evidence.
+
+For coding assistants and integrations:
+
+- [AGENTS.md](AGENTS.md): contributor commands, source map and boundaries.
+- [Agent guide](docs/AGENT-GUIDE.md): implemented CLI, tools, skills, memory and adapter interfaces.
+- [llms.txt](llms.txt): optional machine-readable documentation index.
+- [Bundled skills](skills/): review-feedback and candidate-verification instructions.
+
+These files describe the implemented interfaces; they do not expose an MCP server or authorize unattended publication.
+
+## Verification and examples
+
+The [88-test local validation](docs/VALIDATION.md) covers workflow controls, Git operations, simulated provider/Telegram integrations and the real native patch helper. Four [repair fixtures](evals/README.md) cover parsing, pagination, a long source file and malicious instructions mixed with legitimate feedback.
+
+After qualifying the worker and reviewing the budget, run an actual model evaluation explicitly:
 
 ```sh
-reviewloop evaluate --reference --output /tmp/reviewloop-reference-UNIQUE
+node dist/cli.js evaluate --allow-model-calls \
+  --config "$HOME/.config/reviewloop/reviewloop.json" \
+  --output "$(mktemp -d)"
 ```
 
-Use a new output directory each time. Reference mode runs trusted local fixtures and explicitly reports **fixture validation, not model evaluation**. To evaluate the configured model after qualifying the rootless worker and reviewing its budgets:
+The report separates visible checks, hidden checks, allowed-path checks, usage and latency. Reference fixtures and scripted tests do not establish real-model performance or Codex-level coding quality.
 
-```sh
-reviewloop evaluate --allow-model-calls --config reviewloop.json --output /tmp/reviewloop-model-UNIQUE
-```
+## Contributing and support
 
-Add `--task retry-after` to select one task. The runner hides acceptance tests and reference solutions until coding ends, verifies a frozen candidate, and reports visible checks, hidden checks, changed-path constraints, usage and latency separately. It reserves budget before calls and carries pilot limits across selected tasks. [Benchmark protocol and limitations](evals/README.md). Four synthetic tasks cannot establish Codex-level quality; no live model score is recorded yet.
+Read [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and pull-request expectations. Use the [issue templates](https://github.com/cvsgireesh/reviewloop/issues/new/choose) for bugs and proposals, and [SUPPORT.md](SUPPORT.md) for setup troubleshooting.
+
+Report vulnerabilities privately using [SECURITY.md](SECURITY.md); do not put tokens or private repository content in issues. Review the [runtime security boundaries](docs/SECURITY.md) before deployment. ReviewLoop is distributed under the [MIT License](LICENSE).

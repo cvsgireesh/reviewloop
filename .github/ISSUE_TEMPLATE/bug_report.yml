@@ -1,0 +1,33 @@
+name: Bug report
+description: Report a reproducible defect using sanitized evidence.
+title: "bug: "
+body:
+  - type: markdown
+    attributes:
+      value: "For vulnerabilities, use [private security reporting](https://github.com/cvsgireesh/reviewloop/security/advisories/new). Never include credentials, private source, or unredacted state/log files."
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected and observed behavior
+      description: Describe the concrete failure and its impact.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Minimal reproduction
+      description: Include steps and synthetic fixtures. Identify whether the failure occurred in a deterministic test, reference evaluation, or explicitly authorized live run.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: ReviewLoop version/commit, Node version, OS, Podman/Docker version and rootless mode if applicable. Omit private identifiers.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Sanitized evidence and checks performed
+      description: Include relevant error text and exact checks you ran; do not upload full state directories.

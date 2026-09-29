@@ -1,0 +1,23 @@
+name: Enhancement request
+description: Propose a focused behavior change.
+title: "enhancement: "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What concrete task or failure motivates this change? Use public or synthetic examples.
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Proposed behavior
+      description: Describe the result and how you would verify it. Identify effects on approval, privacy, cost, or sandbox boundaries.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Existing options and alternatives
+      description: Note reusable components or current behavior that could address the problem.

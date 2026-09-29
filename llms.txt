@@ -1,0 +1,28 @@
+# ReviewLoop
+
+> Agents handle your PR feedback while you do other work. You approve every push.
+
+Linux-first GitHub pull-request feedback automation with AWS Bedrock, Pi Agent core, isolated coding tools, independent checks and Telegram approval before each push. Defaults to the owner's open PRs in explicitly configured repositories. Does not automatically merge.
+
+This file is an optional plain-text navigation aid. It is not an official agent protocol, permission grant, or guarantee of search/AI indexing. Consult current source and recorded validation before making capability claims. Never infer authorization for paid inference, notifications or publishing from these links.
+
+## Start here
+
+- [README and setup](https://raw.githubusercontent.com/cvsgireesh/reviewloop/main/README.md)
+- [Contributor agent instructions](https://raw.githubusercontent.com/cvsgireesh/reviewloop/main/AGENTS.md)
+- [Agent interfaces and module guide](https://raw.githubusercontent.com/cvsgireesh/reviewloop/main/docs/AGENT-GUIDE.md)
+- [Operations](https://raw.githubusercontent.com/cvsgireesh/reviewloop/main/docs/OPERATIONS.md)
+- [Security boundaries](https://raw.githubusercontent.com/cvsgireesh/reviewloop/main/docs/SECURITY.md)
+- [Recorded validation and limitations](https://raw.githubusercontent.com/cvsgireesh/reviewloop/main/docs/VALIDATION.md)
+
+## Runtime and evaluation
+
+- [Dependency reuse and attribution](https://raw.githubusercontent.com/cvsgireesh/reviewloop/main/docs/REUSE.md)
+- [Harness runtime decision](https://raw.githubusercontent.com/cvsgireesh/reviewloop/main/docs/ADR-002-HARNESS.md)
+- [Repair evaluation protocol](https://raw.githubusercontent.com/cvsgireesh/reviewloop/main/evals/README.md)
+- [Review-feedback skill](https://raw.githubusercontent.com/cvsgireesh/reviewloop/main/skills/review-feedback/SKILL.md)
+- [Verification skill](https://raw.githubusercontent.com/cvsgireesh/reviewloop/main/skills/verify-candidate/SKILL.md)
+
+Repository and issues: https://github.com/cvsgireesh/reviewloop
+Source tree: https://github.com/cvsgireesh/reviewloop/tree/main
+License: https://github.com/cvsgireesh/reviewloop/blob/main/LICENSE
