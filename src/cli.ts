@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { writeFileSync, realpathSync } from "node:fs";
+import { writeFileSync, realpathSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { exampleConfig, loadConfig } from "./config.js";
@@ -13,6 +13,7 @@ import {
 } from "./sandbox.js";
 import { acquireDaemonLock, daemonState } from "./lock.js";
 import { errorText, redact } from "./util.js";
+import { runEvaluation } from "./evaluate.js";
 import type { Config } from "./types.js";
 
 const HELP = `ReviewLoop — Agents handle your PR feedback. You approve every push.
@@ -30,10 +31,14 @@ Usage: reviewloop COMMAND [arguments] [--config ./reviewloop.json]
   forget MEMORY_ID            Delete a durable preference
   pause | resume              Persist the local service pause setting
   retry JOB_ID                Retry a blocked job with remaining budgets, offline only
+  evaluate --reference        Check bundled repair fixtures without model calls
+  evaluate --allow-model-calls Run a bounded paid-model evaluation in isolation
 
 Options:
   --config PATH               Config location (default ./reviewloop.json)
   --allow-unsafe-local        Explicit UNISOLATED trusted-fixture mode only
+  --output DIR                Evaluation report directory (required for evaluate)
+  --task ID                   Evaluate one bundled task (default: all four)
   --help                      Show this help
 
 doctor never calls the model, sends Telegram messages or pulls images.
@@ -53,14 +58,21 @@ function argumentsFor(argv: string[]) {
       positional.push(...argv.slice(i + 1));
       break;
     }
-    if (["--config", "--repo"].includes(arg)) {
+    if (["--config", "--repo", "--output", "--task"].includes(arg)) {
       const value = argv[++i];
       if (!value || value.startsWith("--"))
         throw new Error(`Missing value for ${arg}`);
       if (flags.has(arg)) throw new Error(`Duplicate ${arg}`);
       flags.set(arg, value);
     } else if (
-      ["--help", "--live", "--once", "--allow-unsafe-local"].includes(arg)
+      [
+        "--help",
+        "--live",
+        "--once",
+        "--allow-unsafe-local",
+        "--reference",
+        "--allow-model-calls",
+      ].includes(arg)
     ) {
       if (flags.has(arg)) throw new Error(`Duplicate ${arg}`);
       flags.set(arg, true);
@@ -223,9 +235,32 @@ export async function runCli(
       "pause",
       "resume",
       "retry",
+      "evaluate",
     ];
     if (!allowed.includes(command))
       throw new Error("Unknown command; use reviewloop --help");
+    for (const flag of [
+      "--reference",
+      "--allow-model-calls",
+      "--output",
+      "--task",
+    ])
+      if (flags.has(flag) && command !== "evaluate")
+        throw new Error(`${flag} is only valid for evaluate`);
+    if (command === "evaluate") {
+      if (positional.length !== 1 || !flags.has("--output"))
+        throw new Error(
+          "Usage: reviewloop evaluate (--reference | --allow-model-calls) --output DIR [--task ID]",
+        );
+      if (flags.has("--reference") === flags.has("--allow-model-calls"))
+        throw new Error(
+          "Choose exactly one: --reference (no inference) or --allow-model-calls (explicit inference authorization)",
+        );
+      if (flags.has("--allow-unsafe-local"))
+        throw new Error(
+          "Evaluation chooses its isolation policy; --allow-unsafe-local is not allowed",
+        );
+    }
     if (flags.has("--live") && command !== "doctor")
       throw new Error("--live is only valid for doctor");
     if (flags.has("--once") && command !== "run")
@@ -250,7 +285,13 @@ export async function runCli(
     }
     let config: Config;
     try {
-      config = loadConfig(configPath);
+      config =
+        command === "evaluate" &&
+        flags.has("--reference") &&
+        !flags.has("--config") &&
+        !existsSync(configPath)
+          ? exampleConfig()
+          : loadConfig(configPath);
     } catch (error) {
       if (error instanceof SyntaxError)
         throw new Error(
@@ -259,6 +300,41 @@ export async function runCli(
       throw error;
     }
     const unsafe = flags.has("--allow-unsafe-local");
+    if (command === "evaluate") {
+      const report = await runEvaluation(config, {
+        reference: flags.has("--reference"),
+        outputDir: resolve(String(flags.get("--output"))),
+        task: flags.has("--task") ? String(flags.get("--task")) : undefined,
+      });
+      safeIO.out(
+        JSON.stringify(
+          {
+            label: report.label,
+            passed: report.passed,
+            tasks: report.tasks.map(
+              ({
+                id,
+                passed,
+                visiblePassed,
+                hiddenPassed,
+                pathConstraintsPassed,
+              }) => ({
+                id,
+                passed,
+                visiblePassed,
+                hiddenPassed,
+                pathConstraintsPassed,
+              }),
+            ),
+            usage: report.usage,
+            reportPath: report.reportPath,
+          },
+          null,
+          2,
+        ),
+      );
+      return report.passed ? 0 : 1;
+    }
     if (command === "doctor") {
       if (positional.length !== 1)
         throw new Error("Usage: reviewloop doctor [--live]");

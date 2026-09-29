@@ -8,8 +8,10 @@ import type {
   ModelProvider,
   PullRequest,
   Sandbox,
+  Message,
 } from "./types.js";
 import { Store } from "./store.js";
+import { SessionJournal } from "./session.js";
 import { Github } from "./github.js";
 import { Telegram } from "./telegram.js";
 import { GitWorkspaces } from "./git.js";
@@ -17,7 +19,7 @@ import { runHarness } from "./harness.js";
 import { createModel } from "./model.js";
 import { createSandbox } from "./sandbox.js";
 import { policyHash } from "./config.js";
-import { errorText, redact } from "./util.js";
+import { errorText, redact, sha256 } from "./util.js";
 type GithubPort = Pick<
   Github,
   "identity" | "listPullRequests" | "getPullRequest"
@@ -70,9 +72,40 @@ export class Controller {
     const jobs = this.store.jobs();
     return `ReviewLoop ${this.paused() ? "PAUSED" : "active"}\n${jobs.length} jobs; ${jobs.filter((j) => j.status === "awaiting_approval").length} awaiting approval; ${jobs.filter((j) => j.status === "blocked").length} blocked\nEstimated model spend: $${this.store.totalCost().toFixed(4)}${this.config.model.inputPricePerMillion ? "" : " (prices not configured; token accounting only)"}\nLast successful GitHub sync: ${this.store.getSetting("lastSync", "never")}`;
   }
+  private journal(job: Job) {
+    return new SessionJournal(
+      join(this.git.directory(job.id), "agent-session.json"),
+      this.git.workspace(job.id),
+      sha256(
+        JSON.stringify({
+          job: job.id,
+          head: job.snapshot.headSha,
+          policy: policyHash(this.config),
+        }),
+      ),
+    );
+  }
   async recover() {
     for (const job of this.store.jobs()) {
       if (["running", "verifying"].includes(job.status)) {
+        try {
+          if (
+            this.store.budget(job).attempts <
+              this.config.runtime.maxRepairAttempts &&
+            (await this.journal(job).load())
+          ) {
+            job.status = "queued";
+            job.error = undefined;
+            this.store.save(job);
+            this.store.event("session.recovered", job.id);
+            continue;
+          }
+        } catch (error) {
+          this.store.event("session.recovery_rejected", job.id, {
+            error: errorText(error),
+          });
+        }
+
         job.status = "blocked";
         job.error =
           "Service restarted during execution; saved partial work. Use retry to start clean with remaining budget.";
@@ -286,6 +319,7 @@ export class Controller {
       );
       // Revisions inherit spending, attempts and context ceilings so chat replies cannot reset a runaway job.
       next.budgetGroup = job.budgetGroup ?? job.id;
+      next.previousJobId = job.id;
       this.store.save(next);
       return `Revision queued as ${next.id}. A new approval will be required after testing.`;
     }
@@ -397,8 +431,43 @@ export class Controller {
         latest.fingerprint !== job.snapshot.fingerprint
       )
         throw new Error("PR changed before execution");
-      const workspace = await this.git.prepare(job);
-      let repair = "";
+      const journal = this.journal(job);
+      let history: Message[] | undefined;
+      try {
+        history = await journal.load();
+      } catch (error) {
+        this.store.event("session.discarded", id, { error: errorText(error) });
+        await journal.discard();
+      }
+      const workspace = history
+        ? this.git.workspace(id)
+        : await this.git.prepare(job);
+      if (history)
+        this.store.event("session.resumed", id, { messages: history.length });
+      else if (job.previousJobId) {
+        const previous = this.store.get(job.previousJobId);
+        if (
+          previous?.candidateSha &&
+          previous.patchHash &&
+          previous.snapshot.headSha === job.snapshot.headSha &&
+          previous.policyHash === policyHash(this.config)
+        ) {
+          await this.git.inheritCandidate(job, previous);
+          this.store.event("candidate.inherited", id, {
+            previous: previous.id,
+            sha: previous.candidateSha,
+          });
+        }
+      }
+      const failedVerification = (evidence: Job["evidence"]) =>
+        evidence?.some((e) => e.exitCode !== 0)
+          ? `Previous verification failed. Correct the implementation, do not weaken tests:\n${evidence
+              .filter((e) => e.exitCode !== 0)
+              .map((e) => `${e.command}\n${e.output}`)
+              .join("\n")
+              .slice(0, 20000)}`
+          : "";
+      let repair = failedVerification(job.evidence);
       for (
         ;
         this.store.budget(job).attempts < this.config.runtime.maxRepairAttempts;
@@ -410,6 +479,17 @@ export class Controller {
         const result = await runHarness(
           {
             workspace,
+            history,
+            commandImage: repo.image,
+            checkpoint: async (messages) => {
+              current();
+              await journal.save(messages);
+              current();
+              history = structuredClone(messages);
+              this.store.event("session.checkpoint", id, {
+                messages: messages.length,
+              });
+            },
             task: `PR ${job.snapshot.title}\n${job.feedback}\n${repair}\nRequired verification commands (controller will run independently): ${repo.checks.join("; ")}`,
             preferences: this.store.memories(job.repo).map((m) => m.text),
             priorSummaries: this.store.summaries(job.repo),
@@ -511,11 +591,7 @@ export class Controller {
         );
         current();
         if (job.evidence.some((e) => e.exitCode !== 0)) {
-          repair = `Previous verification failed. Correct the implementation, do not weaken tests:\n${job.evidence
-            .filter((e) => e.exitCode !== 0)
-            .map((e) => `${e.command}\n${e.output}`)
-            .join("\n")
-            .slice(0, 20000)}`;
+          repair = failedVerification(job.evidence);
           this.store.save(job);
           continue;
         }

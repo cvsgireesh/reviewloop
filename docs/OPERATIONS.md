@@ -1,6 +1,18 @@
 # Operations
 
-Use a dedicated Linux account and private directory for configuration, secrets and durable state. Install Node 24+, Git and rootless Podman (or explicitly configured rootless Docker) through your approved tooling. Have the owner prepare and load an image containing `/bin/sh`, GNU `/usr/bin/timeout`, and each repository's dependencies. ReviewLoop uses the configured image; it does not bootstrap dependencies from untrusted PR instructions.
+Use a dedicated Linux account and private directory for configuration, secrets and durable state. Install Node 24+, Git and rootless Podman (or explicitly configured rootless Docker) through your approved tooling. Have the owner prepare and load an image containing `/bin/sh`, GNU `/usr/bin/timeout`, Codex CLI 0.159.0 for native patch application, and each repository's dependencies. ReviewLoop uses the configured image; it does not bootstrap dependencies from untrusted PR instructions.
+
+## Build the 0.2.0 worker image
+
+From the source checkout on the intended rootless Linux host:
+
+```sh
+podman build -f containers/Containerfile -t localhost/reviewloop-worker:0.2.0 .
+```
+
+The owner-triggered build downloads the Node 24 base and official `@openai/codex@0.159.0` package. Set `runtime.image` to `localhost/reviewloop-worker:0.2.0` (or your explicitly extended image). Add repository-specific test dependencies before qualification; runtime networking and automatic pulls stay disabled. The base tag is mutable, so pin a reviewed base digest if reproducible image builds are required. Rootless Docker can build the same Containerfile when explicitly configured and qualified.
+
+The Codex helper is a patch engine only. ReviewLoop checks its exact version before invoking the internal `--codex-run-as-apply-patch` entry point; a mismatch blocks that tool. It does not require OpenAI credentials or perform model inference. Normal model calls still use the configured Bedrock or OpenAI-compatible provider. The patch ABI is internal and pinned, so upgrade the image and adapter deliberately together.
 
 ## Credentials and first start
 
@@ -90,6 +102,16 @@ Container execution uses parent-side deadlines, a GNU `timeout` entrypoint and, 
 | Uncertain push                     | Inspect the remote branch and job state before retrying; never blindly force-push a fresh candidate.                                                                  |
 | Budget exhaustion                  | Inspect recorded usage and bounds. Increase limits only deliberately; estimated cost is not the authoritative bill.                                                   |
 
+## Checkpoints and revision continuation
+
+The Pi loop writes completed assistant/tool-result rounds to a private `agent-session.json` beside the job workspace, outside the worker mount. Each checkpoint is scoped to the job, original head and configuration policy, and includes a digest of workspace contents. Resume requires a complete tool history and matching workspace; tools from the saved round are not replayed. Older tool outputs may be shortened in provider context while the full checkpoint is retained. Large-file tools support paged reads and bounded full-file literal searches; skipped or truncated scans are reported.
+
+Checkpoint writes flush the file and containing directory around an atomic rename. The state directory and its parents must be private and owner-controlled; the checkpoint is not an authorization source. Workspace digesting is bounded to 10,000 entries and 128 MB, including ignored files. Matching content and saved protocol state are required for continuation.
+
+Startup can requeue an interrupted running/verifying job only when that checkpoint validates and the shared repair budget has room. Otherwise the job remains blocked for inspection. During an explicit retry, an invalid checkpoint is discarded and the workspace is prepared again. Do not edit a worker directory or checkpoint to force a resume.
+
+An owner revision invalidates the old approval and creates a new job in the same budget group. If the previous candidate is verified and its original PR head and policy match, the new job inherits that candidate's edits rather than repeating the original fix. This is candidate continuation; it does not grant approval or carry the previous job's transcript into the new job. The revised candidate must pass independent checks and receive a new nonce-bound approval.
+
 State may contain code excerpts, feedback, model transcripts, preferences and test output. Stop the service before a consistent backup, and protect backups like source code. Retention/deletion is an owner operation; do not assume logs expire automatically. Inspect logs locally before sharing and redact credentials and private content.
 
 ## Verification boundaries
@@ -126,3 +148,25 @@ The command rejects `unsafe-local` and rootful runtimes. It creates a disposable
 Only an actual successful run qualifies that runtime/image for these checks. Syntax/help checks do not. The current development host's rootful Docker cannot qualify; use the intended rootless Linux lab deployment. Passing is not a kernel-isolation audit or proof against every container escape. Probe failures use numeric exit codes: 11 environment, 12 Git mask, 13 engine socket, 14 read-only root, 15–16 network, 17 namespace UID/effective capabilities; missing image tools may fail separately.
 
 Pilot-wide input/output limits default to 1,500,000/120,000 tokens across all jobs and retained reservations (`maxTotalInputTokens`, `maxTotalOutputTokens`). Per-job limits default to 300,000/24,000 tokens and revisions share that budget. These are configurable safety ceilings, not permission to incur charges. Dollar enforcement additionally requires owner-supplied prices and caps.
+
+## Run a repair evaluation
+
+Reference validation needs neither service credentials nor a running container engine:
+
+```sh
+reviewloop evaluate --reference --output /tmp/reviewloop-reference-UNIQUE
+```
+
+It executes trusted fixture code locally, confirms the original hidden checks fail and reference overlays pass, and labels the result as fixture validation. It is not a model coding score. The reference files and hidden checks never go into a worker task.
+
+After runtime/image qualification and review of configured spending limits, explicitly allow configured-model calls:
+
+```sh
+reviewloop evaluate --allow-model-calls --config reviewloop.json --output /tmp/reviewloop-model-UNIQUE
+```
+
+Optionally append `--task retry-after`, `--task cursor-orders`, `--task long-event-catalog`, or `--task injected-redaction`. Evaluation never reads PRs, sends Telegram messages or pushes Git changes. It uses the configured provider and requires a rootless container sandbox for real model execution. The four tasks use one blind harness attempt each; hidden feedback is not fed back to the model.
+
+Inspect `report.json` and each frozen `candidate/`. Existing reports cannot be overwritten; use a fresh directory for another run. Charged/reserved tokens and estimated cost persist before each provider call and accumulate across selected tasks. Failed or uncertain calls keep their reservation. Total limits apply within that evaluation invocation; a different output directory is a separate pilot, not a continuation of its budget ledger. Keep a separate combined spending record when comparing repeated runs.
+
+Passing all four tasks is evidence for these narrow synthetic repairs only. It does not establish production readiness, injection resistance against arbitrary attacks, or Codex-level coding quality. [Full benchmark protocol](../evals/README.md) and [recorded validation](VALIDATION.md).

@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "retry-after",
+  "title": "Retry-After parsing edge cases",
+  "description": "Repair one exported parser without changing its public API.",
+  "feedback": "The rate-limit client is retrying too early. parseRetryAfter(value, nowMs) returns milliseconds or undefined for an unusable header. Please support whole nonnegative decimal seconds (including zero and surrounding whitespace), and HTTP dates in IMF-fixdate form (for example Wed, 21 Oct 2015 07:28:00 GMT). Date delays round up to the next millisecond and clamp past dates to zero. Reject fractional or signed numeric values instead of letting Date.parse interpret them as dates. Keep invalid/missing/non-string headers undefined and never return an unsafe integer. Do not change callers.",
+  "ownerPreferences": [
+    "Keep the exported API and CommonJS packaging."
+  ],
+  "workspace": "workspace",
+  "reference": "reference",
+  "allowedChanges": [
+    "src/retry-after.cjs"
+  ],
+  "checks": [
+    "node --test test/*.test.cjs"
+  ],
+  "hiddenChecks": [
+    "hidden/acceptance.test.cjs"
+  ],
+  "referenceMode": "overlay",
+  "evaluationNotes": "Only workspace, feedback, ownerPreferences and visible checks go to the coding worker. Hidden tests and reference files are evaluator-only."
+}

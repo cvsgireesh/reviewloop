@@ -4,11 +4,11 @@ Agents handle your PR feedback while you do other work. You approve every push.
 
 ReviewLoop is a Linux-first supervisor for your open pull requests in explicitly configured repositories you control. It polls GitHub, asks a coding agent to assess feedback and prepare changes, runs the repository's configured checks, and sends you the result through Telegram. Publishing requires your approval of the exact candidate commit. It does not merge PRs.
 
-**This is an early MVP.** Local deterministic tests and a real credentialed pilot are different acceptance gates. Do not infer production readiness from a green test suite. See [operations](docs/OPERATIONS.md) and [security boundaries](docs/SECURITY.md).
+**Version 0.2.0 upgrades the coding runtime and adds a repair benchmark.** Pi Agent core drives the tool loop, and a pinned Codex executable applies patches inside the worker sandbox. Real-model coding quality and deployment isolation have not been qualified. See [recorded validation](docs/VALIDATION.md), [operations](docs/OPERATIONS.md), and [security boundaries](docs/SECURITY.md).
 
 ## Install from source
 
-Prerequisites: Node.js 24 or newer, npm, Git, and rootless Podman (or explicitly configured rootless Docker). Install those through your normal approved system tooling. Prepare a trusted container image with `/bin/sh`, GNU `/usr/bin/timeout`, and your repository's test/build dependencies; ReviewLoop does not pull an image or install repository dependencies automatically.
+Prerequisites: Node.js 24 or newer, npm, Git, and rootless Podman (or explicitly configured rootless Docker). Install those through your normal approved system tooling. The worker image needs `/bin/sh`, GNU `/usr/bin/timeout`, the pinned Codex patch helper, and your repository's test/build dependencies. ReviewLoop never builds or pulls an image or installs repository dependencies automatically.
 
 ```sh
 npm ci
@@ -20,6 +20,14 @@ reviewloop --help
 ```
 
 Alternatively, run `npm pack` and install the resulting package with `npm install -g /path/to/package.tgz`. Use a user-owned npm prefix; these instructions do not require root. Neither method signs you into any service.
+
+Build the provided worker image explicitly on the intended rootless Linux host:
+
+```sh
+podman build -f containers/Containerfile -t localhost/reviewloop-worker:0.2.0 .
+```
+
+This command downloads the base image and pinned public Codex package. Extend the image with any repository-specific dependencies, set `runtime.image` to the resulting tag, and [qualify the runtime/image](docs/OPERATIONS.md#qualify-the-real-sandbox-before-inference) before using it for model-generated commands.
 
 ## Configure before running
 
@@ -53,7 +61,9 @@ Use `status`, `jobs` and `show JOB_ID` for the current state and evidence. The a
 
 TypeScript controller + SQLite state, Git/Octokit, official AWS Bedrock SDK, isolated execution and Telegram Bot API. The model interface is replaceable; Bedrock and an explicit OpenAI-compatible endpoint are the provider choices in the configuration contract. No silent model fallback.
 
-This is a custom controller and tool loop informed by official DeepSeek Harness and Codex patterns. It does **not** embed either runtime. [Exact reuse and licenses](docs/REUSE.md).
+The controller embeds Pi Agent core 0.99.1 with sequential confined tools and an adapter to ReviewLoop's configured model provider. Bedrock continues through the official AWS SDK. `apply_patch` calls Codex 0.159.0's native patch engine inside the sandbox; it does not invoke the full Codex agent or send inference to OpenAI. DeepSeek Harness is a design reference, not an embedded dependency. [Exact reuse and licenses](docs/REUSE.md), [runtime decision](docs/ADR-002-HARNESS.md).
+
+Complete tool rounds are checkpointed outside the worker workspace. A matching checkpoint can resume after interruption; invalid or changed workspace state is rejected. Owner revisions can start from the prior verified candidate when its original head and policy still match, then require fresh checks and approval. Budgets remain shared across the revision group.
 
 ```mermaid
 flowchart LR
@@ -68,3 +78,19 @@ flowchart LR
 ```
 
 The coding worker receives task context, not permission to publish or read controller credentials. Only the configured Telegram owner/chat can approve; CLI inspection and preferences do not provide an approval bypass.
+
+## Evaluate repair quality
+
+Validate the four fixture oracles without model calls or GitHub/Telegram credentials:
+
+```sh
+reviewloop evaluate --reference --output /tmp/reviewloop-reference-UNIQUE
+```
+
+Use a new output directory each time. Reference mode runs trusted local fixtures and explicitly reports **fixture validation, not model evaluation**. To evaluate the configured model after qualifying the rootless worker and reviewing its budgets:
+
+```sh
+reviewloop evaluate --allow-model-calls --config reviewloop.json --output /tmp/reviewloop-model-UNIQUE
+```
+
+Add `--task retry-after` to select one task. The runner hides acceptance tests and reference solutions until coding ends, verifies a frozen candidate, and reports visible checks, hidden checks, changed-path constraints, usage and latency separately. It reserves budget before calls and carries pilot limits across selected tasks. [Benchmark protocol and limitations](evals/README.md). Four synthetic tasks cannot establish Codex-level quality; no live model score is recorded yet.

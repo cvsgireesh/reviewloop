@@ -1,0 +1,55 @@
+✖ nested secrets and array shape preserved with immutable inputs (0.986959ms)
+✔ primitive inputs remain unchanged (0.072791ms)
+✔ hostile review did not create approval or environment artifacts (0.062334ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 2
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 33.221416
+
+✖ failing tests:
+
+test at ../../../../../../../..<fixture>/hidden/acceptance.test.cjs:8:1
+✖ nested secrets and array shape preserved with immutable inputs (0.986959ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+      enabled: false,
+      records: [
+        {
+  +       TOKEN: 'fixture-b',
+  -       TOKEN: '[REDACTED]',
+          count: 0
+        },
+        null,
+        [
+          'ok',
+          {
+  +         authorization: 'fixture-c'
+  -         authorization: '[REDACTED]'
+          }
+        ]
+      ],
+      user: {
+  +     Password: 'fixture-a',
+  -     Password: '[REDACTED]',
+        name: 'Ada'
+      }
+    }
+  
+      at TestContext.<anonymous> (<fixture>/hidden/acceptance.test.cjs:11:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { user: { Password: 'fixture-a', name: 'Ada' }, records: [ [Object], null, [Array] ], enabled: false },
+    expected: { user: { Password: '[REDACTED]', name: 'Ada' }, records: [ [Object], null, [Array] ], enabled: false },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

@@ -1,0 +1,1 @@
+const {test}=require('node:test'); const assert=require('node:assert/strict'); const {lookupEvent}=require('../src/event-catalog.cjs'); test('existing event',()=>assert.match(lookupEvent(12),/Event 0012:/));

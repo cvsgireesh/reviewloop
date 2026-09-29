@@ -1,0 +1,1 @@
+const {test}=require('node:test'); const assert=require('node:assert/strict'); const {parseRetryAfter}=require('../src/retry-after.cjs'); test('whole seconds',()=>assert.equal(parseRetryAfter('15',0),15000));

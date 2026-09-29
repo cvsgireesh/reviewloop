@@ -139,6 +139,31 @@ export class GitWorkspaces {
     );
     return this.workspace(job.id);
   }
+  async inheritCandidate(job: Job, previous: Job) {
+    if (
+      job.repo !== previous.repo ||
+      job.pr !== previous.pr ||
+      job.snapshot.headSha !== previous.snapshot.headSha
+    )
+      throw new Error("Cannot inherit a candidate from another PR head");
+    await this.verifyCandidate(previous);
+    await this.git(job.id, [
+      "-c",
+      "protocol.file.allow=always",
+      "fetch",
+      "--no-tags",
+      join(this.directory(previous.id), "source"),
+      previous.candidateSha!,
+    ]);
+    await this.git(job.id, ["read-tree", `${previous.candidateSha}^{tree}`]);
+    await rm(this.workspace(job.id), { recursive: true, force: true });
+    await mkdir(this.workspace(job.id), { mode: 0o700 });
+    await this.git(job.id, [
+      "checkout-index",
+      "--all",
+      `--prefix=${this.workspace(job.id)}/`,
+    ]);
+  }
   private async inspectTree(root: string, path = root): Promise<void> {
     for (const entry of await readdir(path, { withFileTypes: true })) {
       const p = join(path, entry.name);
@@ -172,7 +197,10 @@ export class GitWorkspaces {
     return path;
   }
   async treeChanged(job: Job, tree: string) {
-    return tree !== (await this.git(job.id, ["rev-parse", "HEAD^{tree}"]));
+    return (
+      tree !==
+      (await this.git(job.id, ["rev-parse", `${job.snapshot.headSha}^{tree}`]))
+    );
   }
   async assertVerificationPolicy(job: Job) {
     const files = (
@@ -180,6 +208,7 @@ export class GitWorkspaces {
         "diff",
         "--cached",
         "--diff-filter=MDTR",
+        job.snapshot.headSha,
         "--name-only",
         "-z",
       ])
@@ -211,10 +240,19 @@ export class GitWorkspaces {
         "Workspace changed after verification; candidate rejected",
       );
     await this.assertVerificationPolicy(job);
-    const original = await this.git(job.id, ["rev-parse", "HEAD^{tree}"]);
+    const original = await this.git(job.id, [
+      "rev-parse",
+      `${job.snapshot.headSha}^{tree}`,
+    ]);
     if (tree === original) throw new Error("No code changes produced");
     const files = (
-      await this.git(job.id, ["diff", "--cached", "--name-only", "-z"])
+      await this.git(job.id, [
+        "diff",
+        "--cached",
+        "--name-only",
+        "-z",
+        job.snapshot.headSha,
+      ])
     )
       .split("\0")
       .filter(Boolean);
@@ -233,23 +271,25 @@ export class GitWorkspaces {
     const patch = await this.git(job.id, [
       "diff",
       "--cached",
+      job.snapshot.headSha,
       "--binary",
       "--no-ext-diff",
     ]);
     if (Buffer.byteLength(patch) > this.config.runtime.maxPatchBytes)
       throw new Error("Patch size limit exceeded");
-    await this.git(job.id, [
+    const sha = await this.git(job.id, [
       "-c",
       "user.name=ReviewLoop",
       "-c",
       "user.email=reviewloop@localhost",
-      "commit",
-      "--quiet",
-      "--no-verify",
+      "commit-tree",
+      tree,
+      "-p",
+      job.snapshot.headSha,
       "-m",
       `fix: address review feedback for PR #${job.pr}`,
     ]);
-    const sha = await this.git(job.id, ["rev-parse", "HEAD"]);
+    await this.git(job.id, ["update-ref", "HEAD", sha]);
     const patchHash = sha256(patch);
     await writeFile(join(this.directory(job.id), "candidate.patch"), patch, {
       mode: 0o600,
@@ -272,6 +312,9 @@ export class GitWorkspaces {
       throw new Error("Missing frozen candidate");
     const sha = await this.git(job.id, ["rev-parse", "HEAD"]);
     if (sha !== job.candidateSha) throw new Error("Candidate commit changed");
+    const parents = await this.git(job.id, ["show", "-s", "--format=%P", sha]);
+    if (parents !== job.snapshot.headSha)
+      throw new Error("Candidate parent does not match frozen PR head");
     const patch = await readFile(
       join(this.directory(job.id), "candidate.patch"),
     );

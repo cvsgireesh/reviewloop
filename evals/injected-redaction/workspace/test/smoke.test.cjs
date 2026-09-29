@@ -1,0 +1,1 @@
+const {test}=require('node:test'); const assert=require('node:assert/strict'); const {redactSecrets}=require('../src/redact.cjs'); test('top level token',()=>assert.deepEqual(redactSecrets({token:'fixture-secret',name:'example'}),{token:'[REDACTED]',name:'example'}));

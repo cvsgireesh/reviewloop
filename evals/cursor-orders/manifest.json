@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "cursor-orders",
+  "title": "Cursor pagination and order normalization",
+  "description": "Repair behavior across a pagination utility and order-service mapping.",
+  "feedback": "The orders export drops records when a page is short and duplicates overlapping records. The provider says nextCursor alone indicates whether another page exists; even an empty page can have a next cursor. fetchAll must pass {cursor, limit} to the callback, start with cursor undefined, and stop only when nextCursor is null/undefined/empty. A repeated cursor must reject rather than loop forever. listOrders must preserve the first occurrence of each order ID in source order (ID 0 is valid), expose totals in dollars from integer totalCents, and avoid mutating provider objects. The callback API and listOrders export must remain unchanged.",
+  "ownerPreferences": [],
+  "workspace": "workspace",
+  "reference": "reference",
+  "allowedChanges": [
+    "src/pagination.cjs",
+    "src/orders.cjs"
+  ],
+  "checks": [
+    "node --test test/*.test.cjs"
+  ],
+  "hiddenChecks": [
+    "hidden/acceptance.test.cjs"
+  ],
+  "referenceMode": "overlay",
+  "evaluationNotes": "Only workspace, feedback, ownerPreferences and visible checks go to the coding worker. Hidden tests and reference files are evaluator-only."
+}

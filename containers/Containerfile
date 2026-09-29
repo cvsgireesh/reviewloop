@@ -1,0 +1,9 @@
+# Owner-built worker; ReviewLoop never builds or pulls this image automatically.
+FROM node:24-bookworm-slim
+RUN npm install --global @openai/codex@0.159.0 \
+    && test "$(codex --version)" = "codex-cli 0.159.0" \
+    && npm cache clean --force
+WORKDIR /workspace
+# Runtime overrides entrypoint/user and enforces rootless, no-network execution.
+# Extend this image with your repository's test dependencies before qualification.
+CMD ["/bin/sh"]

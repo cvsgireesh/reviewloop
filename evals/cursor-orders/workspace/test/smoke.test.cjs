@@ -1,0 +1,1 @@
+const {test}=require('node:test'); const assert=require('node:assert/strict'); const {fetchAll}=require('../src/pagination.cjs'); test('one page',async()=>assert.deepEqual(await fetchAll(async()=>({items:[{id:1}],nextCursor:null})),[{id:1}]));

@@ -31,6 +31,7 @@ export interface Config {
     image: string;
     maxJobMinutes: number;
     maxSteps: number;
+    maxContextBytes?: number;
     maxRepairAttempts: number;
     maxToolOutputBytes: number;
     maxInputTokens: number;
@@ -94,6 +95,7 @@ export interface Job {
   attempts: number;
   policyHash?: string;
   budgetGroup?: string;
+  previousJobId?: string;
 }
 export interface CheckResult {
   command: string;
@@ -142,6 +144,9 @@ export interface ModelProvider {
 }
 export interface HarnessInput {
   workspace: string;
+  history?: Message[];
+  checkpoint?: (messages: Message[]) => Promise<void>;
+  commandImage?: string;
   task: string;
   preferences: string[];
   priorSummaries: string[];

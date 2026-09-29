@@ -99,6 +99,12 @@ function fixture(t: TestContext) {
             ? [
                 {
                   type: "tool_use",
+                  id: `read-${calls}`,
+                  name: "read_file",
+                  input: { path: "value.cjs" },
+                },
+                {
+                  type: "tool_use",
                   id: `write-${calls}`,
                   name: "write_file",
                   input: {
@@ -198,6 +204,12 @@ test("ignored helper cannot make an unpublished dependency pass independent chec
                     path: "helper.cjs",
                     content: "module.exports = 2;\n",
                   },
+                },
+                {
+                  type: "tool_use",
+                  id: "read-value",
+                  name: "read_file",
+                  input: { path: "value.cjs" },
                 },
                 {
                   type: "tool_use",
@@ -413,6 +425,12 @@ test("replacing npm test with a no-op is blocked before independent verification
         content:
           calls++ === 0
             ? [
+                {
+                  type: "tool_use",
+                  id: "read-weaken",
+                  name: "read_file",
+                  input: { path: "package.json" },
+                },
                 {
                   type: "tool_use",
                   id: "weaken",

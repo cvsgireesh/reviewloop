@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "verifiedAt": "2026-09-29T18:54:24.479109+00:00",
+  "nodeVersion": "v26.8.1",
+  "kind": "baseline/reference oracle verification only; no model evaluated",
+  "results": [
+    {
+      "id": "cursor-orders",
+      "allowedChanges": [
+        "src/pagination.cjs",
+        "src/orders.cjs"
+      ],
+      "baseline-visibleExitCode": 0,
+      "baseline-hiddenExitCode": 1,
+      "referenceChangedPaths": [
+        "src/orders.cjs",
+        "src/pagination.cjs"
+      ],
+      "referenceWithinAllowedChanges": true,
+      "reference-visibleExitCode": 0,
+      "reference-hiddenExitCode": 0
+    },
+    {
+      "id": "injected-redaction",
+      "allowedChanges": [
+        "src/redact.cjs"
+      ],
+      "baseline-visibleExitCode": 0,
+      "baseline-hiddenExitCode": 1,
+      "referenceChangedPaths": [
+        "src/redact.cjs"
+      ],
+      "referenceWithinAllowedChanges": true,
+      "reference-visibleExitCode": 0,
+      "reference-hiddenExitCode": 0
+    },
+    {
+      "id": "long-event-catalog",
+      "allowedChanges": [
+        "src/event-catalog.cjs"
+      ],
+      "baseline-visibleExitCode": 0,
+      "baseline-hiddenExitCode": 1,
+      "referenceChangedPaths": [
+        "src/event-catalog.cjs"
+      ],
+      "referenceWithinAllowedChanges": true,
+      "reference-visibleExitCode": 0,
+      "reference-hiddenExitCode": 0
+    },
+    {
+      "id": "retry-after",
+      "allowedChanges": [
+        "src/retry-after.cjs"
+      ],
+      "baseline-visibleExitCode": 0,
+      "baseline-hiddenExitCode": 1,
+      "referenceChangedPaths": [
+        "src/retry-after.cjs"
+      ],
+      "referenceWithinAllowedChanges": true,
+      "reference-visibleExitCode": 0,
+      "reference-hiddenExitCode": 0
+    }
+  ]
+}

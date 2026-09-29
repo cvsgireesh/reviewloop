@@ -243,3 +243,86 @@ test("npm-style symlink entry executes the CLI main rather than silently skippin
     await f.cleanup();
   }
 });
+
+test("evaluation CLI requires an explicit mode and refuses unsafe model execution before dispatch", async () => {
+  const f = await fixture();
+  const fetcher = globalThis.fetch;
+  let network = 0;
+  globalThis.fetch = async () => {
+    network++;
+    throw new Error("Unexpected network");
+  };
+  try {
+    const output = path.join(f.dir, "evaluation");
+    assert.equal(await f.run("evaluate", "--output", output), 1);
+    assert.match(f.errors.at(-1)!, /Choose exactly one/);
+    assert.equal(
+      await f.run(
+        "evaluate",
+        "--output",
+        output,
+        "--reference",
+        "--allow-model-calls",
+      ),
+      1,
+    );
+    assert.equal(
+      await f.run("evaluate", "--output", output, "--allow-model-calls"),
+      1,
+    );
+    assert.match(f.errors.at(-1)!, /requires a rootless/);
+    assert.equal(await f.run("status", "--allow-model-calls"), 1);
+    assert.equal(network, 0);
+  } finally {
+    globalThis.fetch = fetcher;
+    await f.cleanup();
+  }
+});
+
+test("evaluation CLI runs one reference fixture without credentials and labels it as non-model evidence", async () => {
+  const f = await fixture();
+  const fetcher = globalThis.fetch;
+  let network = 0;
+  globalThis.fetch = async () => {
+    network++;
+    throw new Error("Unexpected network");
+  };
+  try {
+    const output = path.join(f.dir, "evaluation");
+    assert.equal(
+      await f.run(
+        "evaluate",
+        "--reference",
+        "--task",
+        "retry-after",
+        "--output",
+        output,
+      ),
+      0,
+      f.errors.join("\n"),
+    );
+    const report = JSON.parse(
+      await readFile(path.join(output, "report.json"), "utf8"),
+    );
+    assert.equal(report.actualMode, "reference");
+    assert.equal(report.providerKind, "none");
+    assert.equal(report.tasks.length, 1);
+    assert.equal(report.tasks[0].passed, true);
+    assert.match(f.output.at(-1)!, /not model evaluation/);
+    assert.equal(network, 0);
+    assert.equal(
+      await f.run(
+        "evaluate",
+        "--reference",
+        "--task",
+        "retry-after",
+        "--output",
+        output,
+      ),
+      1,
+    );
+  } finally {
+    globalThis.fetch = fetcher;
+    await f.cleanup();
+  }
+});

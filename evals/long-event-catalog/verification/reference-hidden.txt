@@ -1,0 +1,11 @@
+✔ valid integer IDs include numeric zero and catalog boundary (0.37625ms)
+✔ noncanonical inputs never alias valid event IDs (0.070084ms)
+✔ all generated descriptions remain intact (0.164292ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 35.708833

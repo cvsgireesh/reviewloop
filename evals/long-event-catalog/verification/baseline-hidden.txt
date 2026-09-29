@@ -1,0 +1,75 @@
+✖ valid integer IDs include numeric zero and catalog boundary (0.507625ms)
+✖ noncanonical inputs never alias valid event IDs (0.231125ms)
+✖ all generated descriptions remain intact (0.095917ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 0
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 36.389333
+
+✖ failing tests:
+
+test at ../../../../../../../..<fixture>/hidden/acceptance.test.cjs:8:1
+✖ valid integer IDs include numeric zero and catalog boundary (0.507625ms)
+  AssertionError [ERR_ASSERTION]: The "string" argument must be of type string. Received type undefined (undefined)
+      at TestContext.<anonymous> (<fixture>/hidden/acceptance.test.cjs:9:51)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /Event 0000:/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at ../../../../../../../..<fixture>/hidden/acceptance.test.cjs:12:1
+✖ noncanonical inputs never alias valid event IDs (0.231125ms)
+  AssertionError [ERR_ASSERTION]: 01
+  + actual - expected
+  
+  + 'Event 0001: service lifecycle telemetry record; retained for backward-compatible audit display.'
+  - undefined
+  
+      at TestContext.<anonymous> (<fixture>/hidden/acceptance.test.cjs:13:122)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'Event 0001: service lifecycle telemetry record; retained for backward-compatible audit display.',
+    expected: undefined,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at ../../../../../../../..<fixture>/hidden/acceptance.test.cjs:15:1
+✖ all generated descriptions remain intact (0.095917ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'Event 0000: service lifecycle telemetry record; retained for backward-compatible audit display.'
+  
+      at TestContext.<anonymous> (<fixture>/hidden/acceptance.test.cjs:16:33)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'Event 0000: service lifecycle telemetry record; retained for backward-compatible audit display.',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

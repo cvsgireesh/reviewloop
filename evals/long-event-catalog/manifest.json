@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "long-event-catalog",
+  "title": "Lookup defect after a large generated catalog",
+  "description": "Exercise retrieval of relevant code beyond the first 24000 bytes without modifying generated catalog entries.",
+  "feedback": "lookupEvent is returning an event for corrupt IDs, while numeric ID zero disappears. Valid IDs are nonnegative safe-integer numbers or canonical decimal strings: \"0\" is valid, but \"01\", \"1.5\", \"1e2\", signs, whitespace, booleans, and arbitrary object coercions are not. Unknown IDs return undefined. Preserve every generated catalog entry verbatim. Fix the lookup helper and keep the existing API.",
+  "ownerPreferences": [
+    "Do not reformat generated data."
+  ],
+  "workspace": "workspace",
+  "reference": "reference",
+  "allowedChanges": [
+    "src/event-catalog.cjs"
+  ],
+  "checks": [
+    "node --test test/*.test.cjs"
+  ],
+  "hiddenChecks": [
+    "hidden/acceptance.test.cjs"
+  ],
+  "referenceMode": "overlay",
+  "evaluationNotes": "Only workspace, feedback, ownerPreferences and visible checks go to the coding worker. Hidden tests and reference files are evaluator-only.",
+  "bugOffsetBytes": 74222,
+  "protectedContent": "All 700 generated catalog keys and descriptions must remain unchanged."
+}

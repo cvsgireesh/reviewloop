@@ -60,12 +60,10 @@ export const configSchema = z
       .object({
         stateDir: z.string().min(1).default("~/.local/state/reviewloop"),
         sandbox: z.enum(["podman", "docker", "unsafe-local"]).default("podman"),
-        image: z
-          .string()
-          .min(1)
-          .default("docker.io/library/node:24-bookworm-slim"),
+        image: z.string().min(1).default("localhost/reviewloop-worker:0.2.0"),
         maxJobMinutes: positive.max(180).default(30),
         maxSteps: positive.int().max(200).default(24),
+        maxContextBytes: positive.int().min(8000).max(1000000).default(96000),
         maxRepairAttempts: positive.int().max(10).default(3),
         maxToolOutputBytes: positive.int().max(1_000_000).default(24000),
         maxInputTokens: positive.int().default(300000),
@@ -144,9 +142,10 @@ export function exampleConfig(): Config {
     runtime: {
       stateDir: "~/.local/state/reviewloop",
       sandbox: "podman",
-      image: "docker.io/library/node:24-bookworm-slim",
+      image: "localhost/reviewloop-worker:0.2.0",
       maxJobMinutes: 30,
       maxSteps: 24,
+      maxContextBytes: 96000,
       maxRepairAttempts: 3,
       maxToolOutputBytes: 24000,
       maxInputTokens: 300000,

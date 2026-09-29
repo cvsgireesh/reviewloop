@@ -51,20 +51,39 @@ export const tools: ToolSpec[] = [
   spec(
     "list_files",
     "List regular workspace files; .git, symlinks and dependency caches are excluded.",
-    {},
+    {
+      offset: { type: "integer", minimum: 1 },
+      limit: { type: "integer", minimum: 1 },
+    },
     [],
   ),
   spec(
     "read_file",
-    "Read one bounded UTF-8 workspace file. No absolute paths, traversal or symlinks.",
-    { path: string },
+    "Read a numbered page of a UTF-8 workspace file. No absolute paths, traversal or symlinks.",
+    {
+      path: string,
+      start_line: { type: "integer", minimum: 1 },
+      line_count: { type: "integer", minimum: 1 },
+    },
     ["path"],
   ),
   spec(
     "write_file",
-    "Replace/create one bounded UTF-8 workspace file. No .git, traversal or symlinks.",
+    "Create a file, or replace a previously read unchanged file. No .git, traversal or symlinks.",
     { path: string, content: string },
     ["path", "content"],
+  ),
+  spec(
+    "edit_file",
+    "Replace exactly one occurrence of old_text; rejects ambiguous matches.",
+    { path: string, old_text: string, new_text: string },
+    ["path", "old_text", "new_text"],
+  ),
+  spec(
+    "apply_patch",
+    "Apply a Codex patch inside the configured sandbox; requires preloaded Codex helper.",
+    { patch: string },
+    ["patch"],
   ),
   spec(
     "search",

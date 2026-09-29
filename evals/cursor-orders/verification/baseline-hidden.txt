@@ -1,0 +1,67 @@
+✖ short and empty pages continue, zero IDs survive, first duplicate wins, input untouched (0.92225ms)
+✖ repeated cursors reject before a repeated request (0.208584ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 0
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 35.142333
+
+✖ failing tests:
+
+test at ../../../../../../../..<fixture>/hidden/acceptance.test.cjs:8:1
+✖ short and empty pages continue, zero IDs survive, first duplicate wins, input untouched (0.92225ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      {
+        cursor: undefined,
+        limit: 10
+      },
+  -   {
+  -     cursor: 'a',
+  -     limit: 10
+  -   },
+  -   {
+  -     cursor: 'b',
+  -     limit: 10
+  -   }
+    ]
+  
+      at TestContext.<anonymous> (<fixture>/hidden/acceptance.test.cjs:12:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ { cursor: undefined, limit: 10 } ],
+    expected: [ { cursor: undefined, limit: 10 }, { cursor: 'a', limit: 10 }, { cursor: 'b', limit: 10 } ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at ../../../../../../../..<fixture>/hidden/acceptance.test.cjs:16:1
+✖ repeated cursors reject before a repeated request (0.208584ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /cursor/i. Input:
+  
+  'Error: too many requests'
+  
+      at async TestContext.<anonymous> (<fixture>/hidden/acceptance.test.cjs:18:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: Error: too many requests
+        at <fixture>/hidden/acceptance.test.cjs:18:64
+        at fetchAll (/private<workspace>/src/pagination.cjs:4:24)
+        at async waitForActual (node:assert:615:5)
+        at async strict.rejects (node:assert:738:25)
+        at async TestContext.<anonymous> (<fixture>/hidden/acceptance.test.cjs:18:3)
+        at async Test.run (node:internal/test_runner/test:1409:7)
+        at async Test.processPendingSubtests (node:internal/test_runner/test:974:7),
+    expected: /cursor/i,
+    operator: 'rejects',
+    diff: 'simple'
+  }

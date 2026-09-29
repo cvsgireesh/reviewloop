@@ -85,6 +85,12 @@ function fixture(t: TestContext, values = [2]) {
             ? [
                 {
                   type: "tool_use",
+                  id: `read-${n}`,
+                  name: "read_file",
+                  input: { path: "value.cjs" },
+                },
+                {
+                  type: "tool_use",
                   id: `write-${n}`,
                   name: "write_file",
                   input: {
